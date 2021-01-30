@@ -2,45 +2,38 @@
 <html>
 
 <head>
-    <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
+
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
     <title>First WebRTC test</title>
-    <style>
-        body {
-            display: flex;
-            height: 100vh;
-            margin: 0;
-            align-items: center;
-            justify-content: center;
-            padding: 0 50px;
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-        }
-
-        video {
-            max-width: calc(50% - 100px);
-            margin: 0 50px;
-            box-sizing: border-box;
-            border-radius: 2px;
-            padding: 0;
-            box-shadow: rgba(156, 172, 172, 0.2) 0px 2px 2px, rgba(156, 172, 172, 0.2) 0px 4px 4px, rgba(156, 172, 172, 0.2) 0px 8px 8px, rgba(156, 172, 172, 0.2) 0px 16px 16px, rgba(156, 172, 172, 0.2) 0px 32px 32px, rgba(156, 172, 172, 0.2) 0px 64px 64px;
-        }
-
-        .copy {
-            position: fixed;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 16px;
-            color: rgba(0, 0, 0, 0.5);
-        }
-    </style>
+    <link href="style.css" rel="stylesheet" type="text/css">
+    <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
 </head>
 
 <body>
-    <div class="copy">Send your URL to a friend to start a video call</div>
-    <video id="localVideo" autoplay muted></video>
-    <video id="remoteVideo" autoplay></video>
+    <div id="videoBlock">
+        <video id="localVideo" autoplay muted></video>
+        <video id="remoteVideo" autoplay></video>
+    </div>
+    <div id="chatBlock">
+        <div class="content">
+            <div class="messages">
+
+            </div>
+            <form class="footer" onsubmit="return false;">
+                <input type="text" placeholder="Your message..">
+                <button type="submit">Send</button>
+            </form>
+        </div>
+
+        <template data-template="message">
+            <div class="message">
+                <div class="message__name"></div>
+                <div class="message__bubble"></div>
+            </div>
+        </template>
+    </div>
+
     <script src="script.js"></script>
 </body>
 

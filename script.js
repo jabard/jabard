@@ -1,9 +1,23 @@
+function randomEmoji() {
+    const possibleEmojis = [
+        '🐀', '🐁', '🐭', '🐹', '🐂', '🐃', '🐄', '🐮', '🐅', '🐆', '🐯', '🐇', '🐐', '🐑', '🐏', '🐴',
+        '🐎', '🐱', '🐈', '🐰', '🐓', '🐔', '🐤', '🐣', '🐥', '🐦', '🐧', '🐘', '🐩', '🐕', '🐷', '🐖',
+        '🐗', '🐫', '🐪', '🐶', '🐺', '🐻', '🐨', '🐼', '🐵', '🙈', '🙉', '🙊', '🐒', '🐉', '🐲', '🐊',
+        '🐍', '🐢', '🐸', '🐋', '🐳', '🐬', '🐙', '🐟', '🐠', '🐡', '🐚', '🐌', '🐛', '🐜', '🐝', '🐞',
+    ];
+
+    const randomIndex = Math.floor(Math.random() * possibleEmojis.length);
+    return possibleEmojis[randomIndex];
+}
+const emoji = randomEmoji();
+const name = ''; //prompt("What's your name?");
+
 // Generate random room name if needed
 if (!location.hash) {
     location.hash = Math.floor(Math.random() * 0xFFFFFF).toString(16);
 }
-
 const roomHash = location.hash.substring(1);
+
 const drone = new ScaleDrone('yiS12Ts5RdNhebyM');
 // Room name needs to be prefixed with 'observable-'
 const roomName = 'observable-' + roomHash;
@@ -13,7 +27,10 @@ const configuration = {
     }]
 };
 let room;
+// RTCPeerConnection
 let pc;
+// RTCDataChannel
+let dataChannel;
 
 function onSuccess() {
 }
@@ -66,6 +83,15 @@ function startWebRTC(isOfferer) {
         pc.onnegotiationneeded = () => {
             pc.createOffer().then(localDescCreated).catch(onError);
         }
+
+        dataChannel = pc.createDataChannel('chat');
+        setupDataChannel();
+    } else {
+        // If user is not the offerer let's wait for a data channel
+        pc.ondatachannel = event => {
+            dataChannel = event.channel;
+            setupDataChannel();
+        }
     }
 
     // When a remote stream arrives display it in the #remoteVideo element
@@ -117,3 +143,77 @@ function localDescCreated(desc) {
         onError
     );
 }
+
+// Hook up data channel event handlers
+function setupDataChannel() {
+    function checkDataChannelState() {
+        console.log('WebRTC channel state is:', dataChannel.readyState);
+        if (dataChannel.readyState === 'open') {
+            insertMessageToDOM({ content: 'WebRTC data channel is now open' });
+
+            // // Send initial message: the other person's name and emoji
+            // const data = {
+            //     initial: true,
+            //     name,
+            //     emoji
+            // };
+        
+            // dataChannel.send(JSON.stringify(data));
+        }
+    }
+
+    checkDataChannelState();
+    dataChannel.onopen = checkDataChannelState;
+    dataChannel.onclose = checkDataChannelState;
+    dataChannel.onmessage = event => {
+        const data = JSON.parse(event.data);
+
+        // if (data.initial) {
+        //     // TODO: update other user's name and emoji
+        //     return;
+        // }
+
+        insertMessageToDOM(data, false);
+    }
+}
+
+function insertMessageToDOM(options, isFromMe) {
+    const template = document.querySelector('template[data-template="message"]');
+    const nameEl = template.content.querySelector('.message__name');
+    if (options.emoji || options.name) {
+        nameEl.innerText = options.emoji + ' ' + options.name;
+    }
+    template.content.querySelector('.message__bubble').innerText = options.content;
+    const clone = document.importNode(template.content, true);
+    const messageEl = clone.querySelector('.message');
+    if (isFromMe) {
+        messageEl.classList.add('message--mine');
+    } else {
+        messageEl.classList.add('message--theirs');
+    }
+
+    const messagesEl = document.querySelector('.messages');
+    messagesEl.appendChild(clone);
+
+    // Scroll to bottom
+    messagesEl.scrollTop = messagesEl.scrollHeight - messagesEl.clientHeight;
+}
+
+const form = document.querySelector('form');
+form.addEventListener('submit', () => {
+    const input = document.querySelector('input[type="text"]');
+    const value = input.value;
+    input.value = '';
+
+    const data = {
+        name,
+        content: value,
+        emoji,
+    };
+
+    dataChannel.send(JSON.stringify(data));
+
+    insertMessageToDOM(data, true);
+});
+
+insertMessageToDOM({ content: 'Chat URL is ' + location.href });
