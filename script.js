@@ -4,22 +4,22 @@ if (!location.hash) {
 }
 
 const roomHash = location.hash.substring(1);
+const drone = new ScaleDrone('yiS12Ts5RdNhebyM');
+// Room name needs to be prefixed with 'observable-'
+const roomName = 'observable-' + roomHash;
 const configuration = {
     iceServers: [{
         urls: 'stun:stun.l.google.com:19302' // Google's public STUN server
     }]
 };
+let room;
+let pc;
 
 function onSuccess() {
 }
 function onError(error) {
     console.error(error);
 }
-
-// Room name needs to be prefixed with 'observable-'
-const roomName = 'observable-' + roomHash;
-const drone = new ScaleDrove('yiS12Ts5RdNhebyM');
-let room;
 
 drone.on('open', error => {
     if (error) {
@@ -32,22 +32,17 @@ drone.on('open', error => {
             onError(error);
         }
     });
-
     // We're connected to the room and received an array of 'members'
-    //  connected to the room (including us). Signaling server is ready
+    // connected to the room (including us). Signaling server is ready
     room.on('members', members => {
-        if (members.length >= 3) {
-            return alert('The room is full! (why tho?)');
-        }
-
-        // If we are the second user to connect to the room, we'll be creating the offer
+        console.log('MEMBERS', members);
+        // If we are the second user to connect to the room we will be creating the offer
         const isOfferer = members.length === 2;
         startWebRTC(isOfferer);
-        startListeningToSignals();
     });
 });
 
-//Send signaling data via Scaledrone
+// Send signaling data via Scaledrone
 function sendMessage(message) {
     drone.publish({
         room: roomName,
@@ -55,24 +50,21 @@ function sendMessage(message) {
     });
 }
 
-let pc;
 function startWebRTC(isOfferer) {
     pc = new RTCPeerConnection(configuration);
 
     // 'onicecandidate' notifies us whenever an ICE agent needs to deliver a
-    //  message to the peer through the signaling server
+    // message to the other peer through the signaling server
     pc.onicecandidate = event => {
         if (event.candidate) {
             sendMessage({ 'candidate': event.candidate });
         }
-    }
+    };
 
-    // If uses is offerer let the 'negotiationneeded' event create the offer
+    // If user is offerer let the 'negotiationneeded' event create the offer
     if (isOfferer) {
         pc.onnegotiationneeded = () => {
-            pc.createOffer()
-                .then(localDescCreated)
-                .catch(onError);
+            pc.createOffer().then(localDescCreated).catch(onError);
         }
     }
 
@@ -90,14 +82,14 @@ function startWebRTC(isOfferer) {
     }).then(stream => {
         // Display your local video in #localVideo element
         localVideo.srcObject = stream;
-
-        // Add your stream to be sent to the connecting peer
-        pc.addStream(stream);
+        // Add your stream to be sent to the conneting peer
+        stream.getTracks().forEach(track => pc.addTrack(track, stream));
     }, onError);
 
+    // Listen to signaling data from Scaledrone
     room.on('data', (message, client) => {
         // Message was sent by us
-        if (!client || client.id === drone.clientId) {
+        if (client.id === drone.clientId) {
             return;
         }
 
@@ -106,22 +98,22 @@ function startWebRTC(isOfferer) {
             pc.setRemoteDescription(new RTCSessionDescription(message.sdp), () => {
                 // When receiving an offer lets answer it
                 if (pc.remoteDescription.type === 'offer') {
-                    pc.createAnswer()
-                        .then(localDescCreated)
-                        .catch(onError);
+                    pc.createAnswer().then(localDescCreated).catch(onError);
                 }
             }, onError);
         } else if (message.candidate) {
             // Add the new ICE candidate to our connections remote description
-            pc.addIceCandidate(new RTCIceCandidate(message.candidate), onSuccess, onError);
+            pc.addIceCandidate(
+                new RTCIceCandidate(message.candidate), onSuccess, onError
+            );
         }
     });
+}
 
-    function localDescCreated(desc) {
-        pc.setLocalDescription(
-            desc,
-            () => sendMessage({ 'sdp': pc.localDdescription }),
-            onError
-        );
-    }
+function localDescCreated(desc) {
+    pc.setLocalDescription(
+        desc,
+        () => sendMessage({ 'sdp': pc.localDescription }),
+        onError
+    );
 }
