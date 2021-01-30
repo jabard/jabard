@@ -7,6 +7,11 @@
     margin-left: 25vw;
 }
 
+#shareButton {
+    height: min-content;
+    padding: 10px;
+}
+
 /* Video styles */
 body {
     display: flex;
@@ -95,7 +100,7 @@ input {
     background: transparent;
 }
 
-button {
+.footer button {
     border: none;
     background: transparent;
     padding: 0 30px;

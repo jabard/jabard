@@ -31,6 +31,7 @@ let room;
 let pc;
 // RTCDataChannel
 let dataChannel;
+let isSharingScreen = false;
 
 function onSuccess() {
 }
@@ -102,15 +103,7 @@ function startWebRTC(isOfferer) {
         }
     };
 
-    navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: true
-    }).then(stream => {
-        // Display your local video in #localVideo element
-        localVideo.srcObject = stream;
-        // Add your stream to be sent to the conneting peer
-        stream.getTracks().forEach(track => pc.addTrack(track, stream));
-    }, onError);
+    shareWebCam();
 
     // Listen to signaling data from Scaledrone
     room.on('data', (message, client) => {
@@ -150,31 +143,14 @@ function setupDataChannel() {
         console.log('WebRTC channel state is:', dataChannel.readyState);
         if (dataChannel.readyState === 'open') {
             insertMessageToDOM({ content: 'WebRTC data channel is now open' });
-
-            // // Send initial message: the other person's name and emoji
-            // const data = {
-            //     initial: true,
-            //     name,
-            //     emoji
-            // };
-        
-            // dataChannel.send(JSON.stringify(data));
         }
     }
 
     checkDataChannelState();
     dataChannel.onopen = checkDataChannelState;
     dataChannel.onclose = checkDataChannelState;
-    dataChannel.onmessage = event => {
-        const data = JSON.parse(event.data);
-
-        // if (data.initial) {
-        //     // TODO: update other user's name and emoji
-        //     return;
-        // }
-
-        insertMessageToDOM(data, false);
-    }
+    dataChannel.onmessage = event =>
+        insertMessageToDOM(JSON.parse(event.data), false)
 }
 
 function insertMessageToDOM(options, isFromMe) {
@@ -199,6 +175,62 @@ function insertMessageToDOM(options, isFromMe) {
     messagesEl.scrollTop = messagesEl.scrollHeight - messagesEl.clientHeight;
 }
 
+function shareWebCam() {
+    const x = pc.getSenders();
+    console.log(x);
+    navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: true
+    }).then(stream => {
+        // Display your local video in #localVideo element
+        localVideo.srcObject = stream;
+
+        // Add your stream to be sent to the conneting peer
+        // We already have senders and trackes registered, need only to replace them
+        if (pc.getSenders().length) {
+            stream.getTracks().forEach(track => {
+                const sender = pc.getSenders()
+                    .find(s => {
+                        if (s.track) {
+                            s.track.kind == track.kind
+                        }
+                    });
+                if (sender) {
+                    sender.replaceTrack(track);
+                } else {
+                    pc.addTrack(track, stream);
+                }
+                
+            });
+
+            return;
+        }
+
+        // Else, we need to add new senders and tracks
+        stream.getTracks().forEach(track => {
+            pc.addTrack(track, stream);
+        });
+    }, onError);
+}
+
+function shareScreen() {
+    navigator.mediaDevices.getDisplayMedia({
+        audio: false,
+        video: true
+    }).then(stream => {
+        // Display your local video in #localVideo element
+        localVideo.srcObject = stream;
+
+        // Add your stream to be sent to the conneting peer
+        const videoTrack = stream.getVideoTracks()[0];
+        const sender = pc.getSenders().find(s => s.track.kind == videoTrack.kind);
+        sender.replaceTrack(videoTrack);
+
+        const audioSender = pc.getSenders().find(s => s.track.kind != videoTrack.kind);
+        pc.removeTrack(audioSender);
+    }, onError);
+}
+
 const form = document.querySelector('form');
 form.addEventListener('submit', () => {
     const input = document.querySelector('input[type="text"]');
@@ -214,6 +246,21 @@ form.addEventListener('submit', () => {
     dataChannel.send(JSON.stringify(data));
 
     insertMessageToDOM(data, true);
+});
+
+const shareButton = document.getElementById('shareButton');
+shareButton.addEventListener('click', () => {
+    if (isSharingScreen) {
+        shareWebCam();
+        shareButton.innerHTML = "Share your screen";
+        isSharingScreen = false;
+
+        return;
+    }
+
+    shareScreen();
+    shareButton.innerHTML = "Share your webcam";
+    isSharingScreen = true;
 });
 
 insertMessageToDOM({ content: 'Chat URL is ' + location.href });
