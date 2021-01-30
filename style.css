@@ -1,24 +1,15 @@
 /* Global */
 #videoBlock {
-    width: 75vw;
-    height: 100vh;
+    flex-grow: 1;
 }
 
 #videoBlock video {
-    display: block;
     margin-left: 25vw;
-}
-
-#chatBlock {
-    width: 20vw;
-    height: 100vh;
 }
 
 /* Video styles */
 body {
-    width: 100vw;
     display: flex;
-    height: 100vh;
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
