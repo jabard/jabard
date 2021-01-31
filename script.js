@@ -176,8 +176,6 @@ function insertMessageToDOM(options, isFromMe) {
 }
 
 function shareWebCam() {
-    const x = pc.getSenders();
-    console.log(x);
     navigator.mediaDevices.getUserMedia({
         audio: true,
         video: true
@@ -186,30 +184,17 @@ function shareWebCam() {
         localVideo.srcObject = stream;
 
         // Add your stream to be sent to the conneting peer
-        // We already have senders and trackes registered, need only to replace them
+        // We already have senders and trackes registered, need only to replace the video track
         if (pc.getSenders().length) {
-            stream.getTracks().forEach(track => {
-                const sender = pc.getSenders()
-                    .find(s => {
-                        if (s.track) {
-                            s.track.kind == track.kind
-                        }
-                    });
-                if (sender) {
-                    sender.replaceTrack(track);
-                } else {
-                    pc.addTrack(track, stream);
-                }
-                
-            });
+            const videoTrack = stream.getVideoTracks()[0];
+            const sender = pc.getSenders().find(s => s.track.kind == videoTrack.kind);
+            sender.replaceTrack(videoTrack);
 
             return;
         }
 
         // Else, we need to add new senders and tracks
-        stream.getTracks().forEach(track => {
-            pc.addTrack(track, stream);
-        });
+        stream.getTracks().forEach(track => pc.addTrack(track, stream));
     }, onError);
 }
 
@@ -225,9 +210,6 @@ function shareScreen() {
         const videoTrack = stream.getVideoTracks()[0];
         const sender = pc.getSenders().find(s => s.track.kind == videoTrack.kind);
         sender.replaceTrack(videoTrack);
-
-        const audioSender = pc.getSenders().find(s => s.track.kind != videoTrack.kind);
-        pc.removeTrack(audioSender);
     }, onError);
 }
 
